@@ -63,7 +63,7 @@ class BaseProduct:
                 bottom=acumulative_costs,
                 width=bar_widths,
                 color='red',
-                label='cost_reason', edgecolor='b')
+                label=cost_reason, edgecolor='b')
             acumulative_costs += cost_amount
 
         margin = average_price - acumulative_costs

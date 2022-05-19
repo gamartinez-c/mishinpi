@@ -1,3 +1,4 @@
+import requests
 import pandas as pd
 import datetime as dt
 
@@ -10,20 +11,71 @@ from cost import Cost
 
 
 class DataHandler:
-    def __init__(self, path_to_dollar, path_costs_products, path_general_product_information, orders_path, path_facebook_ads):
+    def __init__(self, path_to_dollar, path_costs_products, path_facebook_ads,
+                basic_url, basic_extension, order_list_extension, products_list_extension, header_api):
         self.path_to_dollar = path_to_dollar
         self.path_costs_products = path_costs_products
-        self.path_general_product_information = path_general_product_information
-        self.orders_path = orders_path
         self.path_facebook_ads = path_facebook_ads
 
+        self.basic_url = basic_url
+        self.basic_extension = basic_extension
+        self.order_list_extension = order_list_extension
+        self.products_list_extension = products_list_extension
+        self.header_api = header_api
+
         self.dollar = None
+
+    def get_products_and_kits_from_api(self):
+        response = requests.get(self.basic_url + self.products_list_extension, headers=self.header_api).json()
+
+        products_dict = {'product_name': [], 'sku': [], 'stock': [], 'price': [], 'fecha': [], 'is_kit': []}
+        kits_dict = {'product_name': [], 'sku': [], 'stock': [], 'price': [], 'fecha': [], 'is_kit': []}
+        for product in response['products']:
+            or_prod = product
+            if product['status'] == 'active':
+                product['variants'][0]['title'] = product['title']
+                product = product['variants'][0]
+                if '-' not in product['sku']: 
+                    dict_to_append_to = products_dict
+                else:
+                    dict_to_append_to = kits_dict
+
+                dict_to_append_to['product_name'].append(product['title'])
+                dict_to_append_to['sku'].append(product['sku'])
+                dict_to_append_to['stock'].append(int(product['inventory_quantity']))
+                dict_to_append_to['price'].append(float(product['price']))
+                dict_to_append_to['fecha'].append(dt.date.today())
+                dict_to_append_to['is_kit'].append(product['sku'] == 'active')
+
+        basic_products = pd.DataFrame(products_dict)
+        kits_products = pd.DataFrame(kits_dict)
+
+        return basic_products, kits_products
+
+    def get_orders_from_api(self):
+        response = requests.get(self.basic_url + self.order_list_extension, headers=self.header_api).json()
+
+        orders_dict = {'Name': [], 'Subtotal': [], 'Shipping': [], 'date': [], 'quantity': [], 'product_name': [], 'sku_name': []}
+
+        for order in response['orders']:
+            orders_dict['Name'].append(order['name'])
+            orders_dict['Subtotal'].append(float(order['subtotal_price']))
+            orders_dict['Shipping'].append(float(order['total_price']) - float(order['subtotal_price']))
+            orders_dict['date'].append(order['created_at'])
+            orders_dict['quantity'].append([int(product_information['quantity']) for product_information in order['line_items']])
+            orders_dict['product_name'].append([product_information['name'] for product_information in order['line_items']])
+            orders_dict['sku_name'].append([product_information['sku'] for product_information in order['line_items']])
+
+        agg_orders = pd.DataFrame(orders_dict)
+        agg_orders['date'] = pd.to_datetime(agg_orders['date']).dt.date
+
+        return agg_orders
 
     def load_data(self):
         self.load_dollar()
         self.load_products()
         self.load_orders()
-        self.load_stock()
+        # self.load_stock()
         self.load_facebook_ads()
         self.load_shopify_cost()
 
@@ -42,42 +94,27 @@ class DataHandler:
         # Loading Products
         path_costs_products = 'data/dolar_&_products_extra_information/informacion productos.xlsx'
         costs_products = pd.read_excel(path_costs_products, sheet_name='products')
-
-        path_general_product_information = 'data/stock/products_28_4_2022.csv'
-        general_product_information = pd.read_csv(path_general_product_information)
-        general_product_information['fecha'] = dt.date(2022, 4, 28)
-        product_important_columns = ['Title', 'Variant SKU', 'Variant Inventory Qty', 'Variant Price', 'fecha']
-        general_product_information = general_product_information[product_important_columns]
-        general_product_information['is_kit'] = general_product_information['Variant SKU'].str.contains('-')
-        general_product_information.rename(columns={'Title': 'product_name', 'Variant SKU': 'sku', 'Variant Inventory Qty': 'stock', 'Variant Price': 'price'}, inplace=True)
-
-        basic_products = general_product_information[~general_product_information['is_kit']]
-        kits_products = general_product_information[general_product_information['is_kit']]
-
         rename_columns_dict = {
-            'Solucion Micelar': 'Agua Micelar 3 en 1', 'BB Cream': 'BB. CREAM',
-            'Serum Hyaluronic HA + B3 + B5': 'Serum Hyaluronic. Filler HA + B5 B3', 'Crema 360 Antiage': 'Crema Antiage 360°',
-            'Crema humectante íntimia': 'Crema humectante íntima prebiótica', 'Espuma de limpieza': 'Espuma de Limpieza 3en1',
-            'Gel lubricante': 'Gel lubricante íntimo', 'Hydra Age': 'Hydra Age',
-            'Jabón íntimo': 'Jabón de limpieza íntimo prebiótico', 'Lips Glow': 'Lips Glow',
-            'Lips Scrub': 'Lips Scrub', 'Contorno de Ojos (Lineas de Expresion)': 'Líneas de Expresión Antiage',
-            'Oil Serum Age +': 'OIL SERUM AGE+', 'Protector solar Corporal': 'Protector Solar FPS50+  Emulsion Corporal',
-            'Protector solar Facial con color': 'Protector Solar FPS50+ Facial c/color', 'Serum Redensity': 'Serum Redensity. COLÁGENO',
-            'Serum Xpression': 'Serum Xpressiones', 'Sulderm Hidra Filler Intense': 'Sulderm Hydra Filler Intense',
-            'Sulderm Hidra Filler Light': 'Sulderm Hydra Filler Light', 'Ultra Defense': 'Ultra Defense',
-            'Contorno de Ojos (bolsas y ojeras)': 'Bolsas y Ojeras. Antiage',
-            'Crema corporal hidratante': 'CREMA HIDRATANTE CORPORAL SUPREME',
-            'Protector solar Corporal en Spray': 'Protector Solar FPS50+ Spray Corporal',
-            'Protector solar Facial en Spray': 'Protector Solar FPS50+ Spray Facial'
+            'Solucion Micelar': 'Agua Micelar 3 en 1', 'BB Cream': 'BB. CREAM', 'Serum Hyaluronic HA + B3 + B5': 'Serum Hyaluronic. Filler HA + B5 B3',
+            'Crema 360 Antiage': 'Crema Antiage 360°', 'Crema humectante íntimia': 'Crema humectante íntima prebiótica', 'Espuma de limpieza': 'Espuma de Limpieza 3en1',
+            'Gel lubricante': 'Gel lubricante íntimo', 'Hydra Age': 'Hydra Age', 'Jabón íntimo': 'Jabón de limpieza íntimo prebiótico', 'Lips Glow': 'Lips Glow',
+            'Lips Scrub': 'Lips Scrub', 'Contorno de Ojos (Lineas de Expresion)': 'Líneas de Expresión Antiage', 'Oil Serum Age +': 'OIL SERUM AGE+',
+            'Protector solar Corporal': 'Protector Solar FPS50+  Emulsion Corporal', 'Protector solar Facial con color': 'Protector Solar FPS50+ Facial c/color',
+            'Serum Redensity': 'Serum Redensity. COLÁGENO', 'Sulderm Hidra Filler Intense': 'Sulderm Hydra Filler Intense',
+            'Sulderm Hidra Filler Light': 'Sulderm Hydra Filler Light', 'Ultra Defense': 'Ultra Defense', 'Contorno de Ojos (bolsas y ojeras)': 'Bolsas y Ojeras. Antiage',
+            'Crema corporal hidratante': 'CREMA HIDRATANTE CORPORAL SUPREME', 'Protector solar Corporal en Spray': 'Protector Solar FPS50+ Spray Corporal',
+        'Protector solar Facial en Spray': 'Protector Solar FPS50+ Spray Facial'
         }
-
         costs_products['PRODUCTOS'].replace(rename_columns_dict, inplace=True)
+
+        basic_products, kits_products = self.get_products_and_kits_from_api()
         basic_products = basic_products.merge(costs_products, left_on='product_name', right_on='PRODUCTOS', how='inner').drop(columns='PRODUCTOS')
         basic_products.rename(columns={'Costo base U$S': 'cost'}, inplace=True)
 
         for row in basic_products.itertuples():
             exchange = self.dollar.get_price_at_date(row.fecha)
-            Product(row.price / exchange, row.cost, row.sku, row.product_name)
+            product = Product(row.price / exchange, row.cost, row.sku, row.product_name)
+            product.stock_at_date_dict[row.fecha] = row.stock
 
         # Load kits
         for row in kits_products.itertuples():
@@ -89,21 +126,13 @@ class DataHandler:
 
     def load_orders(self):
         # Loading Orders
-        orders_path = 'data/orders/orders_export_1.csv'
-        orders = pd.read_csv(orders_path)
-
-        columns_for_sales = ['Name', 'Subtotal', 'Shipping', 'Created at', 'Lineitem quantity', 'Lineitem name', 'Lineitem sku']
-        orders = orders[columns_for_sales]
-
-        orders.rename(columns={'Created at': 'date', 'Lineitem quantity': 'quantity', 'Lineitem name': 'product_name', 'Lineitem sku': 'sku_name'}, inplace=True)
-        orders['date'] = pd.to_datetime(orders['date']).dt.date
-        orders = orders[orders['date'] >= dt.date(2022, 1, 1)]
-        agg_orders = orders.groupby('Name').agg({'Subtotal': 'sum', 'Shipping': 'sum', 'date': 'first', 'quantity': list, 'product_name': list, 'sku_name': list})
+        agg_orders = self.get_orders_from_api()
         agg_orders['exchange_at_date'] = agg_orders['date'].apply(lambda date: self.dollar.get_price_at_date(date))
         agg_orders['Shipping'] = agg_orders['Shipping'] / agg_orders['exchange_at_date']
         agg_orders['Subtotal'] = agg_orders['Subtotal'] / agg_orders['exchange_at_date']
         agg_orders['Shipping'].replace(0, None, inplace=True)
         agg_orders['Shipping'].fillna(agg_orders['Shipping'].mean(), inplace=True)
+
 
         for order_row in agg_orders.itertuples():
             total_quantity = sum(order_row.quantity)

@@ -11,7 +11,7 @@ from cost import Cost
 
 
 class DataHandler:
-    def __init__(self, path_to_dollar, path_costs_products, path_facebook_ads,
+    def __init__(self, path_to_dollar, path_costs_products, path_facebook_ads, spent_url_facebook,
                 basic_url, basic_extension, order_list_extension, products_list_extension, header_api):
         self.path_to_dollar = path_to_dollar
         self.path_costs_products = path_costs_products
@@ -22,6 +22,8 @@ class DataHandler:
         self.order_list_extension = order_list_extension
         self.products_list_extension = products_list_extension
         self.header_api = header_api
+
+        self.spent_url_facebook = spent_url_facebook
 
         self.dollar = None
 
@@ -71,12 +73,27 @@ class DataHandler:
 
         return agg_orders
 
+    def get_facebook_spent_from_api(self):
+        response = requests.get(self.spent_url_facebook).json()
+        df_facebook_ads = pd.DataFrame(response['data'])
+        df_facebook_ads['date_start'] = pd.to_datetime(df_facebook_ads['date_start'])
+        df_facebook_ads['exchange_at_date'] = df_facebook_ads['date_start'].apply(lambda date: self.dollar.get_price_at_date(date))
+        df_facebook_ads['spend'] = df_facebook_ads['spend'].astype(float) / df_facebook_ads['exchange_at_date']
+        df_facebook_ads = df_facebook_ads[['date_start', 'spend']]
+        df_facebook_ads = df_facebook_ads.groupby('date_start').sum()
+        df_facebook_ads.reset_index(inplace=True)
+        for row in df_facebook_ads.itertuples():
+            Cost(row.date_start, 'facebook_ads', row.spend)
+
+
+
     def load_data(self):
         self.load_dollar()
         self.load_products()
         self.load_orders()
         # self.load_stock()
-        self.load_facebook_ads()
+        self.get_facebook_spent_from_api()
+        # self.load_facebook_ads()
         self.load_shopify_cost()
 
     def load_dollar(self):

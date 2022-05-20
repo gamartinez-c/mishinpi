@@ -37,10 +37,10 @@ def plot_rentabilidad():
     total_cost['reason'] = 'total'
     for reason in df.reason.unique():
         df_for_reason = df[df['reason'] == reason][['date', 'amount']]
-        df_for_reason = df_for_reason.set_index('date').resample('w').amount.sum()
-        df_for_reason.plot(label=reason, ax=axs)
-    total = total_cost.set_index('date').resample('w').amount.sum()
-    total.plot(label='total_cost', ax=axs)
+        df_for_reason = df_for_reason.set_index('date').resample('W').amount.sum()
+        df_for_reason.plot(label=reason, ax=axs, marker='x')
+    total = total_cost.set_index('date').resample('W').amount.sum()
+    total.plot(label='total_cost', ax=axs, marker='x')
     plt.legend()
     plt.show()
 

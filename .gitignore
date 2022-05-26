@@ -134,3 +134,7 @@ dmypy.json
 
 *.xlsx
 *.csv
+
+# Pycharm files
+
+*.idea

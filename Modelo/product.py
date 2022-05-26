@@ -82,8 +82,8 @@ class Product(BaseProduct):
         # Se necesita considerar el caso de cuando los moviemintos son anteriores al stock
         return stock_at_date
 
-    def get_next_stock_break(self):
-        daily_demand = self.get_average_daily_demand()
+    def get_next_stock_break(self, timedelta_to_consider_demand=None):
+        daily_demand = self.get_average_daily_demand(timedelta_to_consider_demand)
         stock_today = self.get_stock()
         if stock_today < 0:
             return dt.date.today()

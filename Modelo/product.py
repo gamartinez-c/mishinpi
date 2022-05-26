@@ -5,6 +5,7 @@ from statistics import mean
 
 from stock_movement import StockMovement
 from base_product import BaseProduct
+from sale import Sale
 
 
 class Product(BaseProduct):
@@ -52,16 +53,22 @@ class Product(BaseProduct):
     def adjust_stock(self):
         pass
 
-    def get_average_daily_demand(self):
-        movement_dates = [stock_movement.date for stock_movement in self.stock_movements if stock_movement.amount > 0]
-        movement_amount = [stock_movement.amount for stock_movement in self.stock_movements if stock_movement.amount > 0]
-        min_date = min(movement_dates)
-        max_date = max(movement_dates)
-        days_diff = (max_date - min_date).days
-        if days_diff != 0:
-            return sum(movement_amount) / days_diff
-        else:
+    def get_average_daily_demand(self, last_timedelta=None):
+        if last_timedelta is None:
+            sales_list = [sale.date for sale in Sale.sales_list]
+            last_timedelta = max(sales_list) - min(sales_list)
+        first_date_to_start_tracking = dt.date.today() - last_timedelta
+        movements = [stock_movement for stock_movement in self.stock_movements if (stock_movement.amount > 0) and (stock_movement.date >= first_date_to_start_tracking)]
+        movement_dates = [stock_movement.date for stock_movement in movements]
+        movement_amount = [stock_movement.amount for stock_movement in movements]
+        if len(movement_dates) != 0:
+            min_date = min(movement_dates)
+            max_date = max(movement_dates)
+            days_diff = last_timedelta.days
+            if days_diff != 0:
+                return sum(movement_amount) / days_diff
             return 0
+        return 0
 
     def get_stock(self, date=None):
         date = date if date is not None else dt.date.today()

@@ -42,4 +42,7 @@ if __name__ == '__main__':
     ax.hist(margin_dict.values())
     plt.show()
 
+    next_break_df = get_next_break_of_all_products()
+    product_to_buy = buy_calculation(dt.timedelta(days=21), dt.timedelta(days=7))
+
     print(1)

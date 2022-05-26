@@ -130,3 +130,8 @@ fabric.properties
 .idea/**/azureSettings.xml
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,data
+
+*.env
+*.xlsx
+*.iml
+*settings.json

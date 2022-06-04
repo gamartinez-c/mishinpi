@@ -34,7 +34,7 @@ if __name__ == '__main__':
     index_of_max_stock_mov = stock_counts.index(max_stock_mov)
     product_with_max_mov = Product.products_list[index_of_max_stock_mov]
 
-    plot_rentabilidad()
+    plot_revenue(min_cut='W')
     product_with_max_mov.plot_average_costs()
 
     margin_dict = {product: product.get_perc_margin() for product in BaseProduct.base_products_list if len(product.sales) > 0}

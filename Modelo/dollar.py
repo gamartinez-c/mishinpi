@@ -1,3 +1,6 @@
+import datetime as dt
+
+
 class Dollar:
     def __init__(self, exchange_price_date_list_tuples):
         self.exchange_price_date_list_tuples = exchange_price_date_list_tuples

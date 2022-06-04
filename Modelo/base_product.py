@@ -1,3 +1,4 @@
+import numpy as np
 from statistics import mean
 import matplotlib.pyplot as plt
 
@@ -39,7 +40,7 @@ class BaseProduct:
         sale_prices = [sale.amount_price for sale in self.sales]
         if len(sale_prices) > 0:
             return mean(sale_prices)
-        return 0
+        return self.price
 
     def get_perc_margin(self):
         average_price = self.get_average_sale_price()
@@ -78,6 +79,6 @@ class BaseProduct:
 
         ax.hlines(average_price, 1 - bar_widths, 1 + bar_widths, color='black')
         plt.legend()
-        plt.show()
+        return fig, ax
 
 

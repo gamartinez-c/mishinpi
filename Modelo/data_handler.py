@@ -1,6 +1,9 @@
+import os
+import logging
 import requests
 import pandas as pd
 import datetime as dt
+import streamlit as st
 
 from sale import Sale
 from dollar import Dollar
@@ -9,23 +12,25 @@ from base_product import BaseProduct
 from kit import Kit
 from cost import Cost
 
-
 class DataHandler:
-    def __init__(self, path_to_dollar, path_costs_products, path_facebook_ads, spent_url_facebook,
-                basic_url, basic_extension, order_list_extension, products_list_extension, header_api):
-        self.path_to_dollar = path_to_dollar
-        self.path_costs_products = path_costs_products
-        self.path_facebook_ads = path_facebook_ads
+    path_to_dollar = 'data/dolar_&_products_extra_information/informacion productos.xlsx'
+    path_costs_products = 'data/dolar_&_products_extra_information/informacion productos.xlsx'
+    path_facebook_ads = 'data/facebook_ads/v1.xlsx'
 
-        self.basic_url = basic_url
-        self.basic_extension = basic_extension
-        self.order_list_extension = order_list_extension
-        self.products_list_extension = products_list_extension
-        self.header_api = header_api
+    # Shopify API
+    basic_url = 'https://cmartinezbidal.myshopify.com'
+    basic_extension = '/admin/api/2022-04/shop.json'
+    order_list_extension = '/admin/api/2022-04/orders.json?status=any&limit=250&created_at_min=2022-01-01T00:00:00-03:00'
+    products_list_extension = '/admin/api/2022-04/products.json'
+    header_api = {'X-Shopify-Access-Token': os.environ['TOKE']}
 
-        self.spent_url_facebook = spent_url_facebook
+    # Facebook API
+    spent_url_facebook = "https://graph.facebook.com/v13.0/act_343691773566320/insights?date_present=this_year&time_increment=1&limit=5000&access_token=" + os.environ['token_API_Facebook']
 
+    def __init__(self):
         self.dollar = None
+
+        self.data_is_loaded = False
 
     def get_products_and_kits_from_api(self):
         response = requests.get(self.basic_url + self.products_list_extension, headers=self.header_api).json()
@@ -76,7 +81,7 @@ class DataHandler:
     def get_facebook_spent_from_api(self):
         response = requests.get(self.spent_url_facebook).json()
         df_facebook_ads = pd.DataFrame(response['data'])
-        df_facebook_ads['date_start'] = pd.to_datetime(df_facebook_ads['date_start'])
+        df_facebook_ads['date_start'] = pd.to_datetime(df_facebook_ads['date_start']).dt.date
         df_facebook_ads['exchange_at_date'] = df_facebook_ads['date_start'].apply(lambda date: self.dollar.get_price_at_date(date))
         df_facebook_ads['spend'] = df_facebook_ads['spend'].astype(float) / df_facebook_ads['exchange_at_date']
         df_facebook_ads = df_facebook_ads[['date_start', 'spend']]
@@ -85,9 +90,8 @@ class DataHandler:
         for row in df_facebook_ads.itertuples():
             Cost(row.date_start, 'facebook_ads', row.spend)
 
-
-
     def load_data(self):
+        logging.info('Start Loading')
         self.load_dollar()
         self.load_products()
         self.load_orders()
@@ -95,6 +99,9 @@ class DataHandler:
         self.get_facebook_spent_from_api()
         # self.load_facebook_ads()
         self.load_shopify_cost()
+
+        self.data_is_loaded = True
+        logging.info('End Loading')
 
     def load_dollar(self):
         # Loading Dollar Price
@@ -149,7 +156,6 @@ class DataHandler:
         agg_orders['Subtotal'] = agg_orders['Subtotal'] / agg_orders['exchange_at_date']
         agg_orders['Shipping'].replace(0, None, inplace=True)
         agg_orders['Shipping'].fillna(agg_orders['Shipping'].mean(), inplace=True)
-
 
         for order_row in agg_orders.itertuples():
             total_quantity = sum(order_row.quantity)

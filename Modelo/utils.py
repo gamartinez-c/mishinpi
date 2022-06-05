@@ -84,7 +84,7 @@ def get_next_break_of_all_products(timedelta_to_consider_demand=None):
     for product in Product.products_list:
         next_breaking_date = product.get_next_stock_break(timedelta_to_consider_demand)
         stock = product.get_stock()
-        daily_demand = product.get_average_daily_demand(timedelta_to_consider_demand)
+        daily_demand = product.get_average_daily_demand_for_stock(timedelta_to_consider_demand)
         next_break_info_dict['name'].append(product.name)
         next_break_info_dict['break_date'].append(next_breaking_date)
         next_break_info_dict['stock_today'].append(stock)

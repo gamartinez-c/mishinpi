@@ -1,3 +1,4 @@
+import itertools
 import os
 import logging
 import requests
@@ -62,16 +63,19 @@ class DataHandler:
     def get_orders_from_api(self):
         response = requests.get(self.basic_url + self.order_list_extension, headers=self.header_api).json()
 
-        orders_dict = {'Name': [], 'Subtotal': [], 'Shipping': [], 'date': [], 'quantity': [], 'product_name': [], 'sku_name': []}
+        orders_dict = {'Name': [], 'Subtotal': [], 'Shipping': [], 'Shipping_type': [], 'date': [], 'quantity': [], 'product_name': [], 'sku_name': []}
 
         for order in response['orders']:
             orders_dict['Name'].append(order['name'])
             orders_dict['Subtotal'].append(float(order['subtotal_price']))
             orders_dict['Shipping'].append(float(order['total_price']) - float(order['subtotal_price']))
+            orders_dict['Shipping_type'].append(order['shipping_lines'][0]['code'])
             orders_dict['date'].append(order['created_at'])
             orders_dict['quantity'].append([int(product_information['quantity']) for product_information in order['line_items']])
             orders_dict['product_name'].append([product_information['name'] for product_information in order['line_items']])
             orders_dict['sku_name'].append([product_information['sku'] for product_information in order['line_items']])
+
+        print(min(orders_dict['date']))
 
         agg_orders = pd.DataFrame(orders_dict)
         agg_orders['date'] = pd.to_datetime(agg_orders['date']).dt.date
@@ -84,6 +88,7 @@ class DataHandler:
         df_facebook_ads['date_start'] = pd.to_datetime(df_facebook_ads['date_start']).dt.date
         df_facebook_ads['exchange_at_date'] = df_facebook_ads['date_start'].apply(lambda date: self.dollar.get_price_at_date(date))
         df_facebook_ads['spend'] = df_facebook_ads['spend'].astype(float) / df_facebook_ads['exchange_at_date']
+        df_facebook_ads['spend'] = df_facebook_ads['spend']*1.60
         df_facebook_ads = df_facebook_ads[['date_start', 'spend']]
         df_facebook_ads = df_facebook_ads.groupby('date_start').sum()
         df_facebook_ads.reset_index(inplace=True)
@@ -165,7 +170,7 @@ class DataHandler:
                 amount_price = (order_row.Subtotal * (quantity * product.price) / total_original_price)
                 sale = Sale(amount_price, product, quantity, order_row.date)
                 shipment_cost = (order_row.Shipping * quantity) / total_quantity
-                product.add_sale(sale, shipment_cost)
+                product.add_sale(sale, shipment_cost, shipping_type=order_row.Shipping_type)
 
     def load_stock(self):
         stock_path = 'data/stock/products_28_4_2022.csv'
@@ -241,4 +246,5 @@ class DataHandler:
                 product.costs.append(cost)
 
     def load_shopify_cost(self):
-        pass
+        for month, year in itertools.product([*range(4, 13)], [2022]):
+            Cost(dt.date(year, month, 1), 'Shopify account', 30)

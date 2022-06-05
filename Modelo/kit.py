@@ -11,9 +11,10 @@ class Kit(BaseProduct):
 
         Kit.kits_list.append(self)
 
-    def add_sale(self, sale, shipment_cost):
+    def add_sale(self, sale, shipment_cost, shipping_type=None):
+        shipping_type = shipping_type if shipping_type is not None else 'Envio a Domicilio'
         super().add_sale(sale, shipment_cost)
 
         for product in self.products_composed_of:
-            stock_movement_of_sale = StockMovement(product, sale.quantity, sale.date)
+            stock_movement_of_sale = StockMovement(product, sale.quantity, sale.date, shipping_type)
             product.stock_movements.append(stock_movement_of_sale)

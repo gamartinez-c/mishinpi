@@ -22,9 +22,10 @@ class Product(BaseProduct):
         Product.products_by_sku[self.sku_name] = self
         Product.products_by_name[self.name] = self
 
-    def add_sale(self, sale, shipment_cost):
+    def add_sale(self, sale, shipment_cost, shipping_type=None):
+        shipping_type = shipping_type if shipping_type is not None else 'Envio a Domicilio'
         super().add_sale(sale, shipment_cost)
-        stock_movement_of_sale = StockMovement(self, sale.quantity, sale.date)
+        stock_movement_of_sale = StockMovement(self, sale.quantity, sale.date, shipping_type)
         self.stock_movements.append(stock_movement_of_sale)
 
     def plot_stock_movements(self, time_window=None, ax=None):
@@ -53,17 +54,22 @@ class Product(BaseProduct):
     def adjust_stock(self):
         pass
 
-    def get_average_daily_demand(self, last_timedelta=None):
+    def get_average_daily_demand_for_stock(self, last_timedelta=None, consider_just_sends=True):
         if last_timedelta is None:
             sales_list = [sale.date for sale in Sale.sales_list]
             last_timedelta = max(sales_list) - min(sales_list)
         first_date_to_start_tracking = dt.date.today() - last_timedelta
-        movements = [stock_movement for stock_movement in self.stock_movements if (stock_movement.amount > 0) and (stock_movement.date >= first_date_to_start_tracking)]
+        movements = []
+        for stock_movement in self.stock_movements:
+            if (stock_movement.amount > 0) and (stock_movement.date >= first_date_to_start_tracking):
+                if consider_just_sends:
+                    if stock_movement.shipping_type != 'Loria 275, Lomas de Zamora, Provincia de Buenos Aires':
+                        movements.append(stock_movement)
+                else:
+                    movements.append(stock_movement)
         movement_dates = [stock_movement.date for stock_movement in movements]
         movement_amount = [stock_movement.amount for stock_movement in movements]
         if len(movement_dates) != 0:
-            min_date = min(movement_dates)
-            max_date = max(movement_dates)
             days_diff = last_timedelta.days
             if days_diff != 0:
                 return sum(movement_amount) / days_diff
@@ -83,7 +89,7 @@ class Product(BaseProduct):
         return stock_at_date
 
     def get_next_stock_break(self, timedelta_to_consider_demand=None):
-        daily_demand = self.get_average_daily_demand(timedelta_to_consider_demand)
+        daily_demand = self.get_average_daily_demand_for_stock(timedelta_to_consider_demand)
         stock_today = self.get_stock()
         if stock_today < 0:
             return dt.date.today()

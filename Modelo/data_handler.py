@@ -75,8 +75,6 @@ class DataHandler:
             orders_dict['product_name'].append([product_information['name'] for product_information in order['line_items']])
             orders_dict['sku_name'].append([product_information['sku'] for product_information in order['line_items']])
 
-        print(min(orders_dict['date']))
-
         agg_orders = pd.DataFrame(orders_dict)
         agg_orders['date'] = pd.to_datetime(agg_orders['date']).dt.date
 

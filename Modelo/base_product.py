@@ -25,7 +25,7 @@ class BaseProduct:
     def add_sale(self, sale, shipment_cost):
         self.sales.append(sale)
         self.costs.append(Cost(sale.date, 'shipment', shipment_cost))
-        self.costs.append(Cost(sale.date, 'Mercado_Pago', 0.02*sale.amount_price))
+        self.costs.append(Cost(sale.date, 'Mercado_Pago', 0.1*sale.amount_price))
         self.costs.append(Cost(sale.date, 'Shopify', 0.02*sale.amount_price))
         self.costs.append(Cost(sale.date, 'product_cost', self.cost * sale.quantity))
 

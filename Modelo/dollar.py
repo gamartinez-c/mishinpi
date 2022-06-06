@@ -2,8 +2,12 @@ import datetime as dt
 
 
 class Dollar:
+    exchanger = None
+
     def __init__(self, exchange_price_date_list_tuples):
         self.exchange_price_date_list_tuples = exchange_price_date_list_tuples
+
+        Dollar.exchanger = self
 
     def get_price_at_date(self, date):
         if len(self.exchange_price_date_list_tuples) != 1:

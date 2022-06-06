@@ -29,7 +29,7 @@ class BaseProduct:
         self.costs.append(Cost(sale.date, 'Shopify', 0.02*sale.amount_price))
         self.costs.append(Cost(sale.date, 'product_cost', self.cost * sale.quantity))
 
-    def get_average_costs(self):
+    def get_average_costs_dict(self):
         costs_list_dict = {cost.reason: [] for cost in self.costs}
         for cost in self.costs:
             costs_list_dict[cost.reason].append(cost.amount)
@@ -51,7 +51,7 @@ class BaseProduct:
     def get_perc_margin(self):
         average_price = self.price
 
-        average_costs_dict = self.get_average_costs()
+        average_costs_dict = self.get_average_costs_dict()
         average_total_cost = sum(average_costs_dict.values())
 
         return (average_price - average_total_cost)/average_price

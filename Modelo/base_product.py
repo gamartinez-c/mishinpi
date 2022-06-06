@@ -66,13 +66,20 @@ class BaseProduct:
         fig, ax = plt.subplots(figsize=(10, 8))
         average_reason_and_costs_list = [*average_costs_dict.items()]
         average_reason_and_costs_list.sort(key=lambda x: x[1], reverse=True)
+        total_cost = sum(average_costs_dict.values())
+        high_color_g = 0
+        low_color_g = 120
         for cost_reason, cost_amount in average_reason_and_costs_list:
+            color_g = low_color_g - (cost_amount/total_cost)*(low_color_g - high_color_g)
             ax.bar(
                 1, cost_amount,
                 bottom=acumulative_costs,
                 width=bar_widths,
-                color='red',
-                label=cost_reason, edgecolor='b')
+                color=(1, color_g/255, 0),
+                label=cost_reason,
+                edgecolor='black',
+                linewidth=2.5
+            )
             ax.text(1 + bar_widths/2 + 0.01, acumulative_costs + cost_amount/3,
                     str(round(cost_amount/average_price*100, 1)) + '% ' + cost_reason, color='black', fontsize=9)
             acumulative_costs += cost_amount
@@ -85,7 +92,9 @@ class BaseProduct:
                 width=bar_widths,
                 label='margen',
                 color='green',
-                edgecolor='b')
+                edgecolor='black',
+                linewidth=2.5
+            )
             ax.text(1 + bar_widths / 2 + 0.01, acumulative_costs + margin / 3,
                     str(round(margin / average_price * 100, 1)) + '% margen', color='black', fontsize=9)
 

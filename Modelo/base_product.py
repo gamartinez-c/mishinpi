@@ -36,6 +36,12 @@ class BaseProduct:
         average_costs = {cost_reason: mean(cost_amount_list) for cost_reason, cost_amount_list in costs_list_dict.items()}
         return average_costs
 
+    def get_average_cost(self, exclude={'shipment'}):
+        average_costs_dict = self.get_average_costs_dict()
+        average_costs_dict = {key: val for key, val in average_costs_dict.items() if key not in exclude}
+        average_cost = sum(average_costs_dict.values())
+        return average_cost
+
     def get_average_sale_price(self):
         sale_prices = [sale.amount_price for sale in self.sales]
         if len(sale_prices) > 0:
@@ -43,7 +49,7 @@ class BaseProduct:
         return self.price
 
     def get_perc_margin(self):
-        average_price = self.get_average_sale_price()
+        average_price = self.price
 
         average_costs_dict = self.get_average_costs()
         average_total_cost = sum(average_costs_dict.values())
@@ -51,8 +57,8 @@ class BaseProduct:
         return (average_price - average_total_cost)/average_price
 
     def plot_average_costs(self):
-        average_price = self.get_average_sale_price()
-        average_costs_dict = self.get_average_costs()
+        average_price = self.price
+        average_costs_dict = self.get_average_costs_dict()
 
         acumulative_costs = 0
         bar_widths = 0.5
@@ -85,6 +91,7 @@ class BaseProduct:
 
         ax.hlines(average_price, 1 - bar_widths/5*4, 1 + bar_widths/5*4, color='black')
         plt.legend(loc=3)
+
         return fig, ax
 
 

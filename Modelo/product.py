@@ -1,3 +1,6 @@
+import itertools
+
+import numpy as np
 import pandas as pd
 import datetime as dt
 import matplotlib.pyplot as plt
@@ -101,3 +104,83 @@ class Product(BaseProduct):
 
     def __str__(self):
         return f'Product Name: {self.name} | SKU Name: {self.sku_name}'
+
+    @staticmethod
+    def get_stock_record_of_time_window(timedelta_to_consider_demand=dt.timedelta(days=60), filter_products=None):
+        if filter_products is None:
+            filter_products = [*Product.products_by_name]
+        next_breaking_stock_dates = Product.get_next_break_of_all_products(timedelta_to_consider_demand)
+        next_breaking_stock_dates = next_breaking_stock_dates[['name', 'break_date']].rename(columns={'name': 'product', 'break_date': 'date'})
+        next_breaking_stock_dates['stock'] = 0
+
+        all_stock_movements_dates_in_timedelta = set()
+        for product in Product.products_list:
+            for sale in product.sales:
+                if sale.date > (dt.date.today() - timedelta_to_consider_demand):
+                    all_stock_movements_dates_in_timedelta.add(sale.date)
+
+        all_combination_product_date = itertools.product([Product.products_by_name[name] for name in filter_products], all_stock_movements_dates_in_timedelta)
+        stocks_dates_data = {'date': [], 'product': [], 'stock': []}
+        for product, date in all_combination_product_date:
+            stocks_dates_data['date'].append(date)
+            stocks_dates_data['product'].append(product.name)
+            stocks_dates_data['stock'].append(product.get_stock(date))
+
+        stocks_dates_data = pd.DataFrame(stocks_dates_data)
+        stocks_dates_data = pd.concat([stocks_dates_data, next_breaking_stock_dates], ignore_index=True)
+        stocks_dates_data.reset_index(drop=True, inplace=True)
+
+        return stocks_dates_data
+
+    @staticmethod
+    def plot_stock(timedelta_to_consider_demand, filter_products):
+        stock_records = Product.get_stock_record_of_time_window(timedelta_to_consider_demand, filter_products)
+        stock_records = stock_records[(stock_records['date'] <= dt.date.today() + timedelta_to_consider_demand) & (stock_records['date'] >= dt.date.today() - timedelta_to_consider_demand)]
+        stock_records.sort_values(by='date', inplace=True)
+
+        fig, ax = plt.subplots()
+        plt.xticks(rotation=-45)
+        for product in stock_records['product'].unique():
+            product_records = stock_records[stock_records['product'] == product]
+            ax.plot(product_records['date'], product_records['stock'], label=product)
+
+        ax.vlines(dt.date.today(), 0, stock_records['stock'].max(), colors='black', linestyles=(0, (3, 5, 1, 5)))
+        # plt.legend()
+        return fig, ax
+
+    @staticmethod
+    def get_next_break_of_all_products(timedelta_to_consider_demand=None):
+        next_break_info_dict = {'name': [], 'break_date': [], 'stock_today': [], 'daily_demand': []}
+        for product in Product.products_list:
+            next_breaking_date = product.get_next_stock_break(timedelta_to_consider_demand)
+            stock = product.get_stock()
+            daily_demand = product.get_average_daily_demand_for_stock(timedelta_to_consider_demand)
+            next_break_info_dict['name'].append(product.name)
+            next_break_info_dict['break_date'].append(next_breaking_date)
+            next_break_info_dict['stock_today'].append(stock)
+            next_break_info_dict['daily_demand'].append(daily_demand)
+
+        next_break_info_df = pd.DataFrame(next_break_info_dict)
+        return next_break_info_df
+
+    @staticmethod
+    def buy_calculation(time_laps_until_next_purchase=None, timedelta_to_consider_demand=None):
+        if time_laps_until_next_purchase is None:
+            time_laps_until_next_purchase = dt.timedelta(days=30)
+        next_breaking_df = Product.get_next_break_of_all_products(timedelta_to_consider_demand)
+
+        first_date_for_breaking_product = next_breaking_df['break_date'].min()
+        date_to_buy = first_date_for_breaking_product - dt.timedelta(days=2)
+        if date_to_buy < dt.date.today():
+            date_to_buy = dt.date.today() + dt.timedelta(days=1)
+
+        days_until_buy = (date_to_buy - dt.date.today()).days
+
+        amount_to_supply_between_buys = next_breaking_df['daily_demand'] * time_laps_until_next_purchase.days
+        amount_demanded_util_first_buy = next_breaking_df['daily_demand'] * days_until_buy
+        amount_to_buy_per_product = amount_to_supply_between_buys - (next_breaking_df['stock_today'] - amount_demanded_util_first_buy)
+
+        amount_to_buy_per_product = np.around(amount_to_buy_per_product)
+        next_breaking_df['amount_to_buy_per_product'] = np.where(amount_to_buy_per_product > 0, amount_to_buy_per_product, 0)
+
+        return next_breaking_df

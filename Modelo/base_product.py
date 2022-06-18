@@ -1,4 +1,4 @@
-import numpy as np
+import logging
 from statistics import mean
 import matplotlib.pyplot as plt
 
@@ -103,4 +103,14 @@ class BaseProduct:
 
         return fig, ax
 
+    @staticmethod
+    def get_product(product_name=None, sku_name=None):
+        if product_name is not None:
+            if product_name in BaseProduct.base_products_by_name:
+                return BaseProduct.base_products_by_name[product_name]
+        if sku_name is not None:
+            if sku_name in BaseProduct.base_products_by_sku:
+                return BaseProduct.base_products_by_sku[sku_name]
+        logging.info('Error in product name:' + str(product_name) + ' and sku name' + str(sku_name) + '.')
+        return None
 

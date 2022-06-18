@@ -127,8 +127,8 @@ class DataHandler:
             'Gel lubricante': 'Gel lubricante íntimo', 'Hydra Age': 'Hydra Age', 'Jabón íntimo': 'Jabón de limpieza íntimo prebiótico', 'Lips Glow': 'Lips Glow',
             'Lips Scrub': 'Lips Scrub', 'Contorno de Ojos (Lineas de Expresion)': 'Líneas de Expresión Antiage', 'Oil Serum Age +': 'OIL SERUM AGE+',
             'Protector solar Corporal': 'Protector Solar FPS50+  Emulsion Corporal', 'Protector solar Facial con color': 'Protector Solar FPS50+ Facial c/color',
-            'Serum Redensity': 'Serum Redensity. COLÁGENO', 'Sulderm Hidra Filler Intense': 'Sulderm Hydra Filler Intense',
-            'Sulderm Hidra Filler Light': 'Sulderm Hydra Filler Light', 'Ultra Defense': 'Ultra Defense', 'Contorno de Ojos (bolsas y ojeras)': 'Bolsas y Ojeras. Antiage',
+            'Serum Redensity': 'Serum Redensity. COLÁGENO', 'Sulderm Hidra Filler Intense': 'Hydra Filler Intense',
+            'Sulderm Hidra Filler Light': 'Hydra Filler Light', 'Ultra Defense': 'Ultra Defense', 'Contorno de Ojos (bolsas y ojeras)': 'Bolsas y Ojeras. Antiage',
             'Crema corporal hidratante': 'CREMA HIDRATANTE CORPORAL SUPREME', 'Protector solar Corporal en Spray': 'Protector Solar FPS50+ Spray Corporal',
         'Protector solar Facial en Spray': 'Protector Solar FPS50+ Spray Facial'
         }
@@ -160,11 +160,21 @@ class DataHandler:
         agg_orders['Shipping'].replace(0, None, inplace=True)
         agg_orders['Shipping'].fillna(agg_orders['Shipping'].mean(), inplace=True)
 
+        # fix renames
+        replacement_products_names_dict = {
+            'Rutina Noche': 'Kit Tratamiento Noche',
+            'Kit Día': 'Kit Hidratación - Pieles normales a mixtas',
+            'Kit Edad de Oro': 'Kit Hidratación - Edad de Oro',
+            'Sulderm Hydra Filler Light': 'Hydra Filler Light',
+            'Sulderm Hydra Filler Intense': 'Hydra Filler Intense'
+            }
+        agg_orders['product_name'] = agg_orders['product_name'].apply(lambda list_name: [replacement_products_names_dict.get(element, element) for element in list_name])
+
         for order_row in agg_orders.itertuples():
             total_quantity = sum(order_row.quantity)
-            total_original_price = sum([BaseProduct.base_products_by_name[product_name].price * product_quantity for product_name, product_quantity in zip(order_row.product_name, order_row.quantity)])
+            total_original_price = sum([BaseProduct.get_product(product_name=product_name, sku_name=sku_name).price * product_quantity for product_name, sku_name, product_quantity in zip(order_row.product_name, order_row.sku_name, order_row.quantity)])
             for quantity, product_name, sku_name in zip(order_row.quantity, order_row.product_name, order_row.sku_name):
-                product = BaseProduct.base_products_by_name[product_name]
+                product = BaseProduct.get_product(product_name=product_name, sku_name=sku_name)
                 amount_price = (order_row.Subtotal * (quantity * product.price) / total_original_price)
                 sale = Sale(amount_price, product, quantity, order_row.date)
                 shipment_cost = (order_row.Shipping * quantity) / total_quantity
